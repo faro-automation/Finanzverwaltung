@@ -17,13 +17,21 @@ Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werd
 ## Ordnerstruktur
 
 - `src/`: der gesamte Quellcode des Projekts.
+- `tests/`: alle Tests (pytest).
+- `.github/`: CI-Workflow und Vorlage für Pull Requests.
 - `data/`: lokale Daten des Programms. Der Inhalt ist per `.gitignore` ausgeschlossen, nur `data/.gitkeep` ist versioniert. Hier liegen persönliche Finanzdaten: **niemals committen** und keine echten Daten in Code, Tests oder Beispielen verwenden.
 
 ## Entwicklungsumgebung
 
 - Python 3.12 in einer virtuellen Umgebung unter `.venv`.
-- Konfiguration und Abhängigkeiten stehen in `pyproject.toml`; Entwicklerwerkzeuge in der Dependency Group `dev`.
-- Einrichten bzw. aktualisieren: `.venv/bin/pip install --group dev`
+- Konfiguration und direkte Abhängigkeiten stehen in `pyproject.toml`; Entwicklerwerkzeuge im Extra `dev`.
+- Feste Versionen stehen in `requirements-dev.txt`, erzeugt mit pip-tools. Diese Datei nie von Hand bearbeiten.
+- Umgebung einrichten bzw. auf den Lock-Stand bringen: `.venv/bin/pip-sync requirements-dev.txt`
+- Nach Änderungen an den Abhängigkeiten in `pyproject.toml` die Lock-Datei neu erzeugen:
+  `.venv/bin/pip-compile --extra dev --strip-extras --output-file requirements-dev.txt pyproject.toml`
+- pre-commit ist installiert und führt ruff und mypy bei jedem Commit aus. Hooks niemals mit `--no-verify` umgehen.
+- Die CI (`.github/workflows/checks.yml`) führt alle Prüfungen bei Pull Requests nach `main` und `develop` aus.
+- Nutzerrelevante Änderungen im Abschnitt `[Unreleased]` der `CHANGELOG.md` eintragen (Format: Keep a Changelog).
 
 Vor jedem Commit müssen alle Prüfungen fehlerfrei durchlaufen:
 
