@@ -1,0 +1,53 @@
+[project]
+name = "finanzverwaltung"
+version = "0.1.0"
+description = "Manage bank accounts and cash reserves and assign them to purposes."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # import sorting
+    "N",    # naming conventions
+    "UP",   # modern Python syntax
+    "B",    # likely bugs
+    "SIM",  # simplifications
+    "C90",  # cyclomatic complexity
+    "ANN",  # missing type annotations
+    "PL",   # pylint rules
+    "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 8
+
+[tool.ruff.lint.pylint]
+# Enforces the single-return rule from CLAUDE.md.
+max-returns = 1
+
+[tool.ruff.lint.per-file-ignores]
+# Tests compare against literal expected values.
+"tests/**" = ["PLR2004"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers"]

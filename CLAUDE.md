@@ -14,6 +14,24 @@ Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werd
 - **Alles im Repository ist auf Englisch:** Bezeichner, Code, Kommentare, Docstrings, Commit-Nachrichten, Branchnamen und Dokumentation im Code.
 - Vor größeren Änderungen erst planen und abstimmen, dann umsetzen.
 
+## Entwicklungsumgebung
+
+- Python 3.12 in einer virtuellen Umgebung unter `.venv`.
+- Konfiguration und Abhängigkeiten stehen in `pyproject.toml`; Entwicklerwerkzeuge in der Dependency Group `dev`.
+- Einrichten bzw. aktualisieren: `.venv/bin/pip install --group dev`
+
+Vor jedem Commit müssen alle Prüfungen fehlerfrei durchlaufen:
+
+```bash
+.venv/bin/ruff format .
+.venv/bin/ruff check .
+.venv/bin/mypy .
+.venv/bin/pytest
+```
+
+- **ruff** prüft unter anderem Namenskonventionen, fehlende Type Hints, Komplexität und die Single-Return-Regel (`max-returns = 1`).
+- **mypy** läuft im strikten Modus.
+
 ## Git
 
 - **Niemals pushen.** Pushen macht ausschließlich der Nutzer.
@@ -146,7 +164,7 @@ Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständli
 
 ### Formatierung
 
-- Einheitlicher Stil im ganzen Projekt, automatisch durch Formatter und Linter sichergestellt (Werkzeuge werden noch festgelegt).
+- Einheitlicher Stil im ganzen Projekt, automatisch durch ruff (Formatter und Linter) sichergestellt.
 - Zusammengehöriger Code steht beieinander; von oben nach unten lesbar, vom Allgemeinen zum Detail.
 
 ### Pfadfinder-Regel
