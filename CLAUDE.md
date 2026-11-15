@@ -11,6 +11,7 @@ Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werd
 ## Kommunikation
 
 - Mit dem Nutzer wird Deutsch gesprochen.
+- **Alles im Repository ist auf Englisch:** Bezeichner, Code, Kommentare, Docstrings, Commit-Nachrichten, Branchnamen und Dokumentation im Code.
 - Vor größeren Änderungen erst planen und abstimmen, dann umsetzen.
 
 ## Git
@@ -18,46 +19,57 @@ Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werd
 - **Niemals pushen.** Pushen macht ausschließlich der Nutzer.
 - **Nur committen, wenn der Nutzer ausdrücklich dazu auffordert oder es freigibt.** Ohne Aufforderung oder Freigabe bleiben Änderungen uncommittet; der Nutzer committet dann selbst.
 
+### Branch-Modell
+
+- `main`: Stand für das Deployment. Hier wird nicht direkt entwickelt.
+- `develop`: Integrationsbranch für die Entwicklung.
+- Arbeitsbranches (`<typ>/<beschreibung>`) werden von `develop` abgezweigt und wieder in `develop` gemergt.
+- `develop` wird in `main` gemergt, wenn ein Stand deployt werden soll. Das entscheidet der Nutzer.
+
 ### Typen
 
 Branches und Commits verwenden dieselben Typen:
 
-| Typ        | Emoji | Verwendung                                         |
-|------------|-------|----------------------------------------------------|
-| `feat`     | ✨    | Neue Funktion                                      |
-| `fix`      | 🐛    | Fehlerbehebung                                     |
-| `refactor` | ♻️    | Umbau ohne Verhaltensänderung                      |
-| `test`     | ✅    | Tests hinzufügen oder anpassen                     |
-| `docs`     | 📝    | Dokumentation                                      |
-| `style`    | 🎨    | Formatierung, Code-Struktur ohne Logikänderung     |
-| `perf`     | ⚡️    | Performance-Verbesserung                           |
-| `build`    | 📦    | Build-System, Abhängigkeiten                       |
-| `ci`       | 👷    | CI-Konfiguration                                   |
-| `chore`    | 🔧    | Wartung, Konfiguration, Sonstiges                  |
+Emojis werden als Gitmoji-Shortcode geschrieben, nicht als Unicode-Zeichen.
+
+| Typ        | Shortcode            | Verwendung                                     |
+|------------|----------------------|------------------------------------------------|
+| `feat`     | `:sparkles:`         | Neue Funktion                                  |
+| `fix`      | `:bug:`              | Fehlerbehebung                                 |
+| `refactor` | `:recycle:`          | Umbau ohne Verhaltensänderung                  |
+| `test`     | `:white_check_mark:` | Tests hinzufügen oder anpassen                 |
+| `docs`     | `:memo:`             | Dokumentation                                  |
+| `style`    | `:art:`              | Formatierung, Code-Struktur ohne Logikänderung |
+| `perf`     | `:zap:`              | Performance-Verbesserung                       |
+| `build`    | `:package:`          | Build-System, Abhängigkeiten                   |
+| `ci`       | `:construction_worker:` | CI-Konfiguration                            |
+| `chore`    | `:wrench:`           | Wartung, Konfiguration, Sonstiges              |
 
 ### Branchnamen
 
 Schema: `<typ>/<beschreibung>`
 
-- `<beschreibung>` in Kleinbuchstaben, Wörter mit Bindestrich getrennt, kurz und aussagekräftig.
-- Beispiele: `feat/konten-anlegen`, `fix/saldo-rundung`, `docs/claude-md`.
+- `<beschreibung>` auf Englisch, in Kleinbuchstaben, Wörter mit Bindestrich getrennt, kurz und aussagekräftig.
+- Beispiele: `feat/create-accounts`, `fix/balance-rounding`, `docs/claude-md`.
 
 ### Commit-Nachrichten
 
 Schema:
 
 ```
-<typ>: <emoji> <Zusammenfassung>
+<typ>: <shortcode> <summary>
 
-<optionaler Beschreibungstext>
+<optional body>
 ```
 
-- Die erste Zeile ist ein knapper Einzeiler (max. ca. 72 Zeichen), im Imperativ, ohne Punkt am Ende.
+- Die gesamte Nachricht ist auf Englisch.
+- Keine `Co-Authored-By`-Zeilen oder sonstigen Trailer.
+- Die erste Zeile ist ein knapper Einzeiler (max. ca. 72 Zeichen), im Imperativ, kleingeschrieben, ohne Punkt am Ende.
 - Ein Beschreibungstext nach einer Leerzeile nur, wenn nötig: Er erklärt das *Warum* und wichtige Details, nicht das, was der Diff ohnehin zeigt.
 - Beispiele:
-  - `feat: ✨ Konten anlegen und auflisten`
-  - `fix: 🐛 Rundungsfehler bei Saldoberechnung beheben`
-  - `docs: 📝 CLAUDE.md mit Projektregeln anlegen`
+  - `feat: :sparkles: add account creation and listing`
+  - `fix: :bug: fix rounding error in balance calculation`
+  - `docs: :memo: add initial claude.md for this project`
 
 ## Clean-Code-Regeln
 
@@ -65,10 +77,10 @@ Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständli
 
 ### Namen
 
-- Aussagekräftige, ausgeschriebene Namen für Variablen, Funktionen, Klassen und Module: `kontostand`, nicht `ks` oder `x`.
+- Aussagekräftige, ausgeschriebene englische Namen für Variablen, Funktionen, Klassen und Module: `account_balance`, nicht `bal` oder `x`.
 - Der Name sagt, *was* etwas ist oder tut. Ein Kommentar sollte dafür nicht nötig sein.
-- Funktionen heißen nach Tätigkeiten (`berechne_saldo`, `ordne_verwendungszweck_zu`), Klassen und Variablen nach Dingen (`Konto`, `Buchung`).
-- Boolesche Werte lesen sich wie Aussagen: `ist_gesperrt`, `hat_deckung`.
+- Funktionen heißen nach Tätigkeiten (`calculate_balance`, `assign_purpose`), Klassen und Variablen nach Dingen (`Account`, `Transaction`).
+- Boolesche Werte lesen sich wie Aussagen: `is_locked`, `has_sufficient_funds`.
 - Keine Abkürzungen außer allgemein üblichen (`id`, `iban`).
 - Begriffe aus der Fachdomäne einheitlich verwenden: ein Konzept, ein Wort.
 
@@ -118,7 +130,7 @@ Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständli
 ### Fehlerbehandlung
 
 - Fehler über Exceptions melden, nicht über Sonderwerte wie `None` oder `-1`.
-- Eigene, aussagekräftige Exception-Klassen für fachliche Fehler (z. B. `UnzureichendeDeckungError`).
+- Eigene, aussagekräftige Exception-Klassen für fachliche Fehler (z. B. `InsufficientFundsError`).
 - Exceptions nicht stillschweigend schlucken.
 - Eingaben an den Systemgrenzen (Benutzereingaben, Importdateien) validieren.
 
