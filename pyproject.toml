@@ -40,6 +40,10 @@ select = [
     "PL",   # pylint rules
     "RUF",  # ruff-specific rules
 ]
+ignore = [
+    "PLR0913",  # no fixed limit on the number of parameters
+    "PLR0917",  # no fixed limit on the number of positional parameters
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 8
@@ -55,7 +59,10 @@ max-returns = 1
 [tool.mypy]
 python_version = "3.12"
 strict = true
+mypy_path = "src"
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 addopts = ["--strict-markers"]

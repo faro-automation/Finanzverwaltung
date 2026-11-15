@@ -6,18 +6,65 @@ Hinweise für Claude Code zur Arbeit in diesem Repository.
 
 **Finanzverwaltung**: ein Programm, um alle Konten und Bargeldreserven zu verwalten und Verwendungszwecken zuzuordnen.
 
-Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werden gerade geplant. Die `.gitignore` ist auf Python ausgelegt.
+Stand: Das Datenmodell (`src/finance_manager/model/`) ist weitgehend fertig. Offen ist noch die Zuordnung realer Buchungen zu Töpfen. Danach folgen Logik (Buchungen anwenden, Bilanzprüfung, Gehaltsaufteilung), Speicherung, Import, Export und die Oberfläche (Desktop, Qt).
 
-## Kommunikation
+## Kommunikation und Arbeitsweise
 
 - Mit dem Nutzer wird Deutsch gesprochen.
-- **Alles im Repository ist auf Englisch:** Bezeichner, Code, Kommentare, Docstrings, Commit-Nachrichten, Branchnamen und Dokumentation im Code.
 - Vor größeren Änderungen erst planen und abstimmen, dann umsetzen.
+- **In kleinen Schritten arbeiten und nur bauen, was ausdrücklich gewünscht ist.** Keine Klassen, Methoden oder Felder auf Vorrat. Ist unklar, ob etwas gewollt ist, weglassen und in einem Satz erwähnen.
+- Namen und Fachbegriffe sind dem Nutzer wichtig: neue Namen kurz vorstellen, damit er sie prüfen kann.
+
+## Sprache im Repository
+
+- **Alles im Repository ist auf Englisch:** Bezeichner, Code, Kommentare, Docstrings, Commit-Nachrichten, Branchnamen und Dokumentation im Code.
+- **Ausnahme Fachbegriffe:** Deutsche Begriffe nur dort, wo der englische Begriff missverständlich wäre. Diese werden dann **nicht übersetzt**, auch nicht in Klassen-, Attribut- und Methodennamen.
+  - Beispiele für die Mischung: `topf.is_active`, `topf.aufloesen()`, `value.is_negative`, `InvalidValueError`
+  - Umlaute in Bezeichnern werden umschrieben: `aufloesen`, `toepfe`, `rueckzahlung`.
+
+## Datenmodell und Fachbegriffe
+
+Alle Klassen liegen in `src/finance_manager/model/`.
+
+| Begriff | Klasse / Name | Bedeutung |
+|---|---|---|
+| Nutzerkonfiguration | `UserConfig` (`config.py`) | Zustand pro Nutzer: Zähler für Kennungen, vergebene Topfnamen. Wird beim Anlegen von Geldorten, Töpfen und realen Buchungen übergeben. |
+| Währung | `Currency` (`money.py`) | Enum, z. B. `Currency.EURO` mit Symbol `€` und 2 Nachkommastellen. `exchange_rate` ist vorbereitet und vorerst `None`. |
+| Geldwert | `Value` (`money.py`) | Zahl mit Vorzeichen und Währung, z. B. −12,50 €. **Nie „Betrag“** nennen, ein Betrag hat kein Vorzeichen. |
+| Monat | `Month` (`month.py`) | Jahr und Monatsnummer. |
+| Geldort | `Geldort` (`geldort.py`) | Ort, an dem Geld tatsächlich liegt. Abstrakte Basis von `Bankkonto` (mit `bank` und `Kontoart`), `Bargeld` (z. B. die Schublade) und `Gutscheine` (ein Bestand aus vielen Gutscheinen). Hat `get_actual_value()`/`set_actual_value()` und den Status `ACTIVE`/`CLOSED`. |
+| Kontoart | `Kontoart` | Girokonto, Tagesgeldkonto, Festgeldkonto, Sparbuch, Sparbrief, Bausparvertrag, Kreditkartenkonto. |
+| Topf | `Topf` (`topf.py`) | Zweck, dem Geld zugeordnet ist, unabhängig vom Geldort. Hat `main_geldort` (Hauptgeldort) und `geldort_values` (Wert je Geldort-Kennung); der aktuelle Wert ist deren Summe. Status `ACTIVE`/`AUFGELOEST`. |
+| Transaktion | `Transaction` (`transaction.py`) | Allgemeine Geldbewegung mit `value` und `transaction_date`. |
+| Reale Buchung | `RealTransaction` | Bewegung auf einem Geldort, z. B. eine Zeile im Kontoauszug. Vorzeichen bestimmt `direction` (`INCOMING`/`OUTGOING`); dazu `statement_text` und Markierung `get_mark()`. |
+| Topfumbuchung | `TopfTransfer` | Interne Umbuchung von `source`- zu `target`-Topf am selben `geldort`; Wert immer positiv. |
+| Auslage, Rückzahlung | `Auslage`, `TransactionMark.AUSLAGE`/`.RUECKZAHLUNG` | Auslage für andere mit erwarteter Anzahl Rückzahlungen (`expected_rueckzahlung_amount`, Standard 1). Beträge werden bewusst nicht verglichen. |
+| Gehalt | `Salary` (`salary.py`) | Geplantes Gehalt: `value`, `geldort` (wo es eingeht) und `topf` (Gehaltstopf, hält das Gehalt bis zur Aufteilung). |
+| Gehaltsplan | `SalaryPlan` | Gehalt, Resttopf (`remainder_topf`), gültig ab Monat (`valid_from`) und Aufteilung (`allocation`). Kein Enddatum: ein Plan gilt bis zum nächsten. |
+| Gehaltsteil, Posten | `SalaryPart`, `SalaryPartItem` | Teil des Gehalts für einen Topf an einem Geldort, bestehend aus benannten Posten (z. B. Versicherungen = KFZ + Haftpflicht + …). |
+
+### Regeln des Modells
+
+- **Kennungen** werden automatisch vergeben und nie wiederverwendet; gezählt wird pro Nutzer in der `UserConfig`:
+  - Geldort: zwei Teile plus je Kombination hochzählende Zahl, getrennt durch `_`: `ING_Tagesgeldkonto_02`, `Bargeld_Schublade_01`, `Gutscheine_Geburtstag_01`.
+  - Reale Buchung: Jahr, Monat und je Monat hochzählende Zahl: `2026_03_0042`.
+  - Topf: der vom Nutzer gewählte Name, eindeutig pro Nutzer.
+- Geldorte werden nie gelöscht, nur geschlossen, und nur bei Wert 0. Töpfe werden nur bei Wert 0 aufgelöst.
+- Im Topf fällt ein Geldort weg, sobald sein Wert 0 erreicht; derselbe Geldort steht nie doppelt drin.
+- Die Gehaltsteile dürfen zusammen nie mehr als das Gehalt ergeben. Jede Änderung am `SalaryPlan` wird vorher geprüft und bei Verstoß mit Fehler abgelehnt.
+- **Nur vorbereitende Felder** (z. B. `Currency.exchange_rate`) werden mit `None` initialisiert, bis es eine echte Verwendung gibt.
+
+### Geplant, noch nicht umgesetzt
+
+- Zuordnung realer Buchungen zu Töpfen (ggf. aufgeteilt) und Kennung für `TopfTransfer`.
+- Umbenennen von Töpfen.
+- Später: Hilfswerte (freie Formeln pro Topf), Aktien, Forderungen an andere.
 
 ## Ordnerstruktur
 
-- `src/`: der gesamte Quellcode des Projekts.
-- `tests/`: alle Tests (pytest).
+- `src/finance_manager/`: der gesamte Quellcode des Projekts.
+  - `model/`: das Datenmodell, ohne Abhängigkeit zu Speicherung oder Oberfläche.
+- `tests/`: alle Tests (pytest), gleich gegliedert wie `src/finance_manager/`.
 - `.github/`: CI-Workflow und Vorlage für Pull Requests.
 - `data/`: lokale Daten des Programms. Der Inhalt ist per `.gitignore` ausgeschlossen, nur `data/.gitkeep` ist versioniert. Hier liegen persönliche Finanzdaten: **niemals committen** und keine echten Daten in Code, Tests oder Beispielen verwenden.
 
@@ -42,7 +89,7 @@ Vor jedem Commit müssen alle Prüfungen fehlerfrei durchlaufen:
 .venv/bin/pytest
 ```
 
-- **ruff** prüft unter anderem Namenskonventionen, fehlende Type Hints, Komplexität und die Single-Return-Regel (`max-returns = 1`).
+- **ruff** prüft unter anderem Namenskonventionen, fehlende Type Hints, Komplexität (`max-complexity = 8`) und die Single-Return-Regel (`max-returns = 1`). Die Grenzen für die Anzahl von Parametern (`PLR0913`, `PLR0917`) sind bewusst abgeschaltet.
 - **mypy** läuft im strikten Modus.
 
 ## Git
@@ -108,17 +155,20 @@ Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständli
 
 ### Namen
 
-- Aussagekräftige, ausgeschriebene englische Namen für Variablen, Funktionen, Klassen und Module: `account_balance`, nicht `bal` oder `x`.
+- Aussagekräftige, ausgeschriebene Namen für Variablen, Funktionen, Klassen und Module: `kontostand`, nicht `ks` oder `x` (Fachbegriffe deutsch, siehe oben).
 - Der Name sagt, *was* etwas ist oder tut. Ein Kommentar sollte dafür nicht nötig sein.
-- Funktionen heißen nach Tätigkeiten (`calculate_balance`, `assign_purpose`), Klassen und Variablen nach Dingen (`Account`, `Transaction`).
-- Boolesche Werte lesen sich wie Aussagen: `is_locked`, `has_sufficient_funds`.
-- Keine Abkürzungen außer allgemein üblichen (`id`, `iban`).
+- **Funktionen und Methoden** heißen immer nach **Tätigkeiten**, beginnen also mit einem Verb: `get_actual_value`, `aufloesen`, `add_geldort_value`, `change_salary_value`.
+- **Klassen** heißen immer nach **Substantiven**: `Geldort`, `Topf`, `Value`.
+- **Variablen, Attribute und Properties** heißen nach **Substantiven** (`main_geldort`, `allocation`) oder **Eigenschaften** (`is_active`, `is_negative`).
+- Boolesche Werte lesen sich wie Aussagen: `is_active`, `is_open`, `has_rueckzahlung`.
+- **Keine sinnlosen Abkürzungen.** Eigene Namen werden immer ausgeschrieben: `currency`, nicht `cur` oder `curr`. Erlaubt sind nur allgemein verständliche Abkürzungen wie `id` oder `iban` und Standardcodes als Daten (z. B. Währungscode `"EUR"`).
+- Auch abgekürzte oder kryptische Namen aus Bibliotheken (z. B. `eq=False` bei `dataclass`, `Decimal.scaleb`) nur verwenden, wenn es keine verständliche Alternative gibt. Dann kurz kommentieren, was sie bewirken.
 - Begriffe aus der Fachdomäne einheitlich verwenden: ein Konzept, ein Wort.
 
 ### Funktionen
 
 - Eine Funktion erledigt genau eine Aufgabe und ist kurz.
-- Möglichst wenige Parameter. Gehören mehrere Werte zusammen, wird daraus ein eigenes Objekt.
+- Keine feste Obergrenze für Parameter. Gehören mehrere Werte fachlich zusammen, wird daraus ein eigenes Objekt (z. B. `Salary` aus Wert, Geldort und Topf).
 - Keine versteckten Seiteneffekte: Eine Funktion tut, was ihr Name verspricht, und nichts darüber hinaus.
 - Abfragen und Befehle trennen: Eine Funktion ändert entweder einen Zustand oder liefert einen Wert, nicht beides.
 - Keine Flag-Parameter, die das Verhalten umschalten. Stattdessen zwei Funktionen schreiben.
@@ -136,6 +186,10 @@ Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständli
 ### Klassen und Module
 
 - **Single Responsibility:** Jede Klasse und jedes Modul hat genau einen Grund, sich zu ändern.
+- **Zustand mit Regeln ist privat.** Attribute, für die Regeln gelten, beginnen mit `_` und werden nur über Methoden geändert, die die Regeln prüfen. Gelesen wird über Properties ohne Setter; Sammlungen werden als Tupel oder Kopie herausgegeben.
+- Solche Klassen haben ein ausgeschriebenes `__init__`. `@dataclass` (meist `frozen=True`) nur für einfache, unveränderliche Werteklassen wie `Value`, `Month`, `Salary`, `SalaryPart`.
+- Gemeinsame Ressourcen pro Nutzer (Zähler, vergebene Namen) gehören in die `UserConfig`, nie als Klassenvariable in eine Fachklasse.
+- Keine zyklischen Importe. Die Module im Modell sind geschichtet, jedes importiert nur aus den Schichten davor: `errors` → `money`, `month`, `config` → `geldort` → `topf` → `transaction`, `salary`.
 - Fachlogik, Datenhaltung und Benutzeroberfläche sind klar voneinander getrennt.
 - Abhängigkeiten zeigen auf Abstraktionen, nicht auf konkrete Implementierungen (Dependency Inversion), wo das die Austauschbarkeit oder Testbarkeit verbessert.
 - Komposition hat Vorrang vor Vererbung.
@@ -161,13 +215,13 @@ Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständli
 ### Fehlerbehandlung
 
 - Fehler über Exceptions melden, nicht über Sonderwerte wie `None` oder `-1`.
-- Eigene, aussagekräftige Exception-Klassen für fachliche Fehler (z. B. `InsufficientFundsError`).
+- Eigene, aussagekräftige Exception-Klassen für fachliche Fehler (z. B. `TopfAlreadyAufgeloestError`).
 - Exceptions nicht stillschweigend schlucken.
 - Eingaben an den Systemgrenzen (Benutzereingaben, Importdateien) validieren.
 
 ### Fachliche Besonderheiten
 
-- Geldbeträge **nie** als `float` speichern oder berechnen. Stattdessen `Decimal` oder ganzzahlige Cent-Beträge verwenden.
+- Geldwerte **nie** als `float` speichern oder berechnen. Stattdessen `Value` mit `Decimal` verwenden; die erlaubten Nachkommastellen legt die `Currency` fest.
 
 ### Tests
 

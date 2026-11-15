@@ -2,7 +2,7 @@
 
 A small program to manage all bank accounts and cash reserves and assign them to purposes.
 
-> Status: early planning. There is no functionality yet.
+> Status: early development. The domain model exists; logic, storage, import and user interface do not yet.
 
 ## Requirements
 
@@ -42,10 +42,14 @@ Direct dependencies are declared in `pyproject.toml`. Exact versions are locked 
 ## Project structure
 
 ```
-src/      source code
-tests/    tests
-data/     local data (git-ignored, never committed)
+src/finance_manager/         source code
+src/finance_manager/model/   domain model (Geldorte, Töpfe, transactions, salary plans)
+tests/                       tests, structured like src/finance_manager/
+data/                        local data (git-ignored, never committed)
 ```
+
+Domain terms that would be ambiguous in English (e.g. `Topf`, `Geldort`, `Auslage`)
+stay German in the code; see `CLAUDE.md` for the full list.
 
 ## Branches
 
