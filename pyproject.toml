@@ -3,15 +3,23 @@ name = "finanzverwaltung"
 version = "0.1.0"
 description = "Manage bank accounts and cash reserves and assign them to purposes."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = []
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "mypy",
+    "pip-tools",
+    "pre-commit",
     "pytest",
     "ruff",
 ]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 88
