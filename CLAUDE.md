@@ -1,0 +1,142 @@
+# CLAUDE.md
+
+Hinweise für Claude Code zur Arbeit in diesem Repository.
+
+## Projekt
+
+**Finanzverwaltung**: ein Programm, um alle Konten und Bargeldreserven zu verwalten und Verwendungszwecken zuzuordnen.
+
+Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werden gerade geplant. Die `.gitignore` ist auf Python ausgelegt.
+
+## Kommunikation
+
+- Mit dem Nutzer wird Deutsch gesprochen.
+- Vor größeren Änderungen erst planen und abstimmen, dann umsetzen.
+
+## Git
+
+- **Niemals pushen.** Pushen macht ausschließlich der Nutzer.
+- **Nur committen, wenn der Nutzer ausdrücklich dazu auffordert oder es freigibt.** Ohne Aufforderung oder Freigabe bleiben Änderungen uncommittet; der Nutzer committet dann selbst.
+
+### Typen
+
+Branches und Commits verwenden dieselben Typen:
+
+| Typ        | Emoji | Verwendung                                         |
+|------------|-------|----------------------------------------------------|
+| `feat`     | ✨    | Neue Funktion                                      |
+| `fix`      | 🐛    | Fehlerbehebung                                     |
+| `refactor` | ♻️    | Umbau ohne Verhaltensänderung                      |
+| `test`     | ✅    | Tests hinzufügen oder anpassen                     |
+| `docs`     | 📝    | Dokumentation                                      |
+| `style`    | 🎨    | Formatierung, Code-Struktur ohne Logikänderung     |
+| `perf`     | ⚡️    | Performance-Verbesserung                           |
+| `build`    | 📦    | Build-System, Abhängigkeiten                       |
+| `ci`       | 👷    | CI-Konfiguration                                   |
+| `chore`    | 🔧    | Wartung, Konfiguration, Sonstiges                  |
+
+### Branchnamen
+
+Schema: `<typ>/<beschreibung>`
+
+- `<beschreibung>` in Kleinbuchstaben, Wörter mit Bindestrich getrennt, kurz und aussagekräftig.
+- Beispiele: `feat/konten-anlegen`, `fix/saldo-rundung`, `docs/claude-md`.
+
+### Commit-Nachrichten
+
+Schema:
+
+```
+<typ>: <emoji> <Zusammenfassung>
+
+<optionaler Beschreibungstext>
+```
+
+- Die erste Zeile ist ein knapper Einzeiler (max. ca. 72 Zeichen), im Imperativ, ohne Punkt am Ende.
+- Ein Beschreibungstext nach einer Leerzeile nur, wenn nötig: Er erklärt das *Warum* und wichtige Details, nicht das, was der Diff ohnehin zeigt.
+- Beispiele:
+  - `feat: ✨ Konten anlegen und auflisten`
+  - `fix: 🐛 Rundungsfehler bei Saldoberechnung beheben`
+  - `docs: 📝 CLAUDE.md mit Projektregeln anlegen`
+
+## Clean-Code-Regeln
+
+Wir programmieren nach den Prinzipien von Clean Code. Lesbarkeit und Verständlichkeit haben Vorrang vor Kürze oder Cleverness.
+
+### Namen
+
+- Aussagekräftige, ausgeschriebene Namen für Variablen, Funktionen, Klassen und Module: `kontostand`, nicht `ks` oder `x`.
+- Der Name sagt, *was* etwas ist oder tut. Ein Kommentar sollte dafür nicht nötig sein.
+- Funktionen heißen nach Tätigkeiten (`berechne_saldo`, `ordne_verwendungszweck_zu`), Klassen und Variablen nach Dingen (`Konto`, `Buchung`).
+- Boolesche Werte lesen sich wie Aussagen: `ist_gesperrt`, `hat_deckung`.
+- Keine Abkürzungen außer allgemein üblichen (`id`, `iban`).
+- Begriffe aus der Fachdomäne einheitlich verwenden: ein Konzept, ein Wort.
+
+### Funktionen
+
+- Eine Funktion erledigt genau eine Aufgabe und ist kurz.
+- Möglichst wenige Parameter. Gehören mehrere Werte zusammen, wird daraus ein eigenes Objekt.
+- Keine versteckten Seiteneffekte: Eine Funktion tut, was ihr Name verspricht, und nichts darüber hinaus.
+- Abfragen und Befehle trennen: Eine Funktion ändert entweder einen Zustand oder liefert einen Wert, nicht beides.
+- Keine Flag-Parameter, die das Verhalten umschalten. Stattdessen zwei Funktionen schreiben.
+- **Single Return:** Jede Funktion hat genau ein `return`, und zwar am Ende. Keine vorzeitigen Rücksprünge; das Ergebnis wird in einer Variablen gesammelt und am Schluss zurückgegeben.
+
+### Typing
+
+- **Type Hints sind Pflicht** für alle Parameter, Rückgabewerte und Attribute, auch bei `-> None`.
+- Wo der Typ nicht offensichtlich ist, werden auch lokale Variablen annotiert.
+- Moderne Syntax verwenden: `list[str]`, `dict[str, Decimal]`, `X | None`.
+- `Any` vermeiden; wenn es unumgänglich ist, die Begründung kommentieren.
+- Für strukturierte Daten typisierte Konstrukte nutzen (`dataclass`, `Enum`, `TypedDict`, `Protocol`) statt loser Dicts oder Tupel.
+- Der Code muss eine statische Typprüfung (z. B. mypy im strikten Modus) fehlerfrei bestehen.
+
+### Klassen und Module
+
+- **Single Responsibility:** Jede Klasse und jedes Modul hat genau einen Grund, sich zu ändern.
+- Fachlogik, Datenhaltung und Benutzeroberfläche sind klar voneinander getrennt.
+- Abhängigkeiten zeigen auf Abstraktionen, nicht auf konkrete Implementierungen (Dependency Inversion), wo das die Austauschbarkeit oder Testbarkeit verbessert.
+- Komposition hat Vorrang vor Vererbung.
+
+### Wiederholungen vermeiden (DRY)
+
+- Kein kopierter Code. Wiederkehrende Logik wird in eine Funktion oder Klasse ausgelagert.
+- Konstanten und Konfigurationswerte werden einmal zentral definiert. Keine „magischen Zahlen“ oder Strings im Code.
+- Aber: keine voreilige Abstraktion. Erst wenn sich etwas tatsächlich wiederholt, wird es zusammengefasst.
+
+### Einfachheit
+
+- **KISS:** die einfachste Lösung, die das Problem korrekt löst.
+- **YAGNI:** nichts auf Vorrat bauen, was aktuell nicht gebraucht wird.
+- Toten oder auskommentierten Code löschen; die Versionsgeschichte steht in Git.
+
+### Kommentare
+
+- Guter Code erklärt sich selbst. Kommentare erklären das *Warum*, nicht das *Was*.
+- Docstrings für öffentliche Funktionen und Klassen, wenn Zweck oder Verhalten nicht schon aus dem Namen klar wird.
+- Veraltete Kommentare sofort anpassen oder entfernen.
+
+### Fehlerbehandlung
+
+- Fehler über Exceptions melden, nicht über Sonderwerte wie `None` oder `-1`.
+- Eigene, aussagekräftige Exception-Klassen für fachliche Fehler (z. B. `UnzureichendeDeckungError`).
+- Exceptions nicht stillschweigend schlucken.
+- Eingaben an den Systemgrenzen (Benutzereingaben, Importdateien) validieren.
+
+### Fachliche Besonderheiten
+
+- Geldbeträge **nie** als `float` speichern oder berechnen. Stattdessen `Decimal` oder ganzzahlige Cent-Beträge verwenden.
+
+### Tests
+
+- Fachlogik wird durch automatisierte Tests abgesichert.
+- Tests sind genauso sauber und lesbar wie der Produktivcode.
+- Ein Test prüft genau ein Verhalten, und sein Name beschreibt, welches.
+
+### Formatierung
+
+- Einheitlicher Stil im ganzen Projekt, automatisch durch Formatter und Linter sichergestellt (Werkzeuge werden noch festgelegt).
+- Zusammengehöriger Code steht beieinander; von oben nach unten lesbar, vom Allgemeinen zum Detail.
+
+### Pfadfinder-Regel
+
+- Code immer etwas sauberer hinterlassen, als man ihn vorgefunden hat, solange es im Rahmen der aktuellen Aufgabe bleibt.
