@@ -1,0 +1,39 @@
+name: checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install locked dev dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements-dev.txt
+
+      - name: ruff format
+        run: .venv/bin/ruff format --check .
+
+      - name: ruff check
+        run: .venv/bin/ruff check .
+
+      - name: mypy
+        run: .venv/bin/mypy .
+
+      - name: pytest
+        # Exit code 5 means "no tests collected"; accepted until the first test exists.
+        run: .venv/bin/pytest || [ $? -eq 5 ]
