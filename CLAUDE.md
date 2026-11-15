@@ -14,6 +14,11 @@ Das Projekt steht noch am Anfang; Architektur, Datenmodell und Technologien werd
 - **Alles im Repository ist auf Englisch:** Bezeichner, Code, Kommentare, Docstrings, Commit-Nachrichten, Branchnamen und Dokumentation im Code.
 - Vor größeren Änderungen erst planen und abstimmen, dann umsetzen.
 
+## Ordnerstruktur
+
+- `src/`: der gesamte Quellcode des Projekts.
+- `data/`: lokale Daten des Programms. Der Inhalt ist per `.gitignore` ausgeschlossen, nur `data/.gitkeep` ist versioniert. Hier liegen persönliche Finanzdaten: **niemals committen** und keine echten Daten in Code, Tests oder Beispielen verwenden.
+
 ## Entwicklungsumgebung
 
 - Python 3.12 in einer virtuellen Umgebung unter `.venv`.
