@@ -106,3 +106,33 @@ class SalaryPartItemNotFoundError(FinanceError):
         super().__init__(
             f"The salary part for Topf '{topf_name}' has no item '{item_name}'"
         )
+
+
+class TopfRenameNotAfterLastRenameError(FinanceError):
+    """Raised when a rename does not start after the latest rename of a Topf."""
+
+    def __init__(self, topf_name: str, last_rename_month: str) -> None:
+        super().__init__(
+            f"Topf '{topf_name}' was last renamed from {last_rename_month} on; "
+            "a new rename must start in a later month"
+        )
+
+
+class SplitSourceMismatchError(FinanceError):
+    """Raised when a split does not start from the Topf of its RealTransaction."""
+
+    def __init__(self, transaction_identifier: str, source_name: str) -> None:
+        super().__init__(
+            f"A split of transaction {transaction_identifier} must start from "
+            f"its Topf, not from '{source_name}'"
+        )
+
+
+class SplitGeldortMismatchError(FinanceError):
+    """Raised when a split is not on the Geldort of its RealTransaction."""
+
+    def __init__(self, transaction_identifier: str, geldort_identifier: str) -> None:
+        super().__init__(
+            f"A split of transaction {transaction_identifier} must be on its "
+            f"Geldort, not on '{geldort_identifier}'"
+        )

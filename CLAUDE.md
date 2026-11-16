@@ -6,7 +6,7 @@ Hinweise für Claude Code zur Arbeit in diesem Repository.
 
 **Finanzverwaltung**: ein Programm, um alle Konten und Bargeldreserven zu verwalten und Verwendungszwecken zuzuordnen.
 
-Stand: Das Datenmodell (`src/finance_manager/model/`) ist weitgehend fertig. Offen ist noch die Zuordnung realer Buchungen zu Töpfen. Danach folgen Logik (Buchungen anwenden, Bilanzprüfung, Gehaltsaufteilung), Speicherung, Import, Export und die Oberfläche (Desktop, Qt).
+Stand: Das Datenmodell (`src/finance_manager/model/`) steht. Als Nächstes folgen Logik (Buchungen anwenden, Bilanzprüfung, Gehaltsaufteilung), Speicherung, Import, Export und die Oberfläche (Desktop, Qt).
 
 ## Kommunikation und Arbeitsweise
 
@@ -28,16 +28,16 @@ Alle Klassen liegen in `src/finance_manager/model/`.
 
 | Begriff | Klasse / Name | Bedeutung |
 |---|---|---|
-| Nutzerkonfiguration | `UserConfig` (`config.py`) | Zustand pro Nutzer: Zähler für Kennungen, vergebene Topfnamen. Wird beim Anlegen von Geldorten, Töpfen und realen Buchungen übergeben. |
+| Nutzerkonfiguration | `UserConfig` (`config.py`) | Zustand pro Nutzer: Zähler für Kennungen, vergebene Topfnamen. Wird beim Anlegen von Geldorten, Töpfen, realen Buchungen und Topfumbuchungen übergeben. |
 | Währung | `Currency` (`money.py`) | Enum, z. B. `Currency.EURO` mit Symbol `€` und 2 Nachkommastellen. `exchange_rate` ist vorbereitet und vorerst `None`. |
 | Geldwert | `Value` (`money.py`) | Zahl mit Vorzeichen und Währung, z. B. −12,50 €. **Nie „Betrag“** nennen, ein Betrag hat kein Vorzeichen. |
-| Monat | `Month` (`month.py`) | Jahr und Monatsnummer. |
+| Monat | `Month` (`month.py`) | Jahr und Monatsnummer; Monate sind chronologisch vergleichbar. |
 | Geldort | `Geldort` (`geldort.py`) | Ort, an dem Geld tatsächlich liegt. Abstrakte Basis von `Bankkonto` (mit `bank` und `Kontoart`), `Bargeld` (z. B. die Schublade) und `Gutscheine` (ein Bestand aus vielen Gutscheinen). Hat `get_actual_value()`/`set_actual_value()` und den Status `ACTIVE`/`CLOSED`. |
 | Kontoart | `Kontoart` | Girokonto, Tagesgeldkonto, Festgeldkonto, Sparbuch, Sparbrief, Bausparvertrag, Kreditkartenkonto. |
 | Topf | `Topf` (`topf.py`) | Zweck, dem Geld zugeordnet ist, unabhängig vom Geldort. Hat `main_geldort` (Hauptgeldort) und `geldort_values` (Wert je Geldort-Kennung); der aktuelle Wert ist deren Summe. Status `ACTIVE`/`AUFGELOEST`. |
 | Transaktion | `Transaction` (`transaction.py`) | Allgemeine Geldbewegung mit `value` und `transaction_date`. |
-| Reale Buchung | `RealTransaction` | Bewegung auf einem Geldort, z. B. eine Zeile im Kontoauszug. Vorzeichen bestimmt `direction` (`INCOMING`/`OUTGOING`); dazu `statement_text` und Markierung `get_mark()`. |
-| Topfumbuchung | `TopfTransfer` | Interne Umbuchung von `source`- zu `target`-Topf am selben `geldort`; Wert immer positiv. |
+| Reale Buchung | `RealTransaction` | Bewegung auf einem Geldort, z. B. eine Zeile im Kontoauszug. Vorzeichen bestimmt `direction` (`INCOMING`/`OUTGOING`); dazu `statement_text`, Markierung `get_mark()` und genau ein `topf` (oder noch keiner, z. B. nach dem Import), gesetzt mit `assign_topf()`. Muss eine Buchung aufgeteilt werden, kommt sie in einen Topf, und die Teile werden per `TopfTransfer` weitergebucht. |
+| Topfumbuchung | `TopfTransfer` | Interne Umbuchung von `source`- zu `target`-Topf am selben `geldort`; Wert immer positiv. Mit `split_of` ist sie die Aufteilung einer realen Buchung (zählt als Ausgabe des Zieltopfs) und muss vom Topf und Geldort dieser Buchung ausgehen; ohne `split_of` ein Umschichten von Erspartem. Die Verknüpfung steht nur an der Umbuchung, nicht zusätzlich an der Buchung. |
 | Auslage, Rückzahlung | `Auslage`, `TransactionMark.AUSLAGE`/`.RUECKZAHLUNG` | Auslage für andere mit erwarteter Anzahl Rückzahlungen (`expected_rueckzahlung_amount`, Standard 1). Beträge werden bewusst nicht verglichen. |
 | Gehalt | `Salary` (`salary.py`) | Geplantes Gehalt: `value`, `geldort` (wo es eingeht) und `topf` (Gehaltstopf, hält das Gehalt bis zur Aufteilung). |
 | Gehaltsplan | `SalaryPlan` | Gehalt, Resttopf (`remainder_topf`), gültig ab Monat (`valid_from`) und Aufteilung (`allocation`). Kein Enddatum: ein Plan gilt bis zum nächsten. |
@@ -48,7 +48,8 @@ Alle Klassen liegen in `src/finance_manager/model/`.
 - **Kennungen** werden automatisch vergeben und nie wiederverwendet; gezählt wird pro Nutzer in der `UserConfig`:
   - Geldort: zwei Teile plus je Kombination hochzählende Zahl, getrennt durch `_`: `ING_Tagesgeldkonto_02`, `Bargeld_Schublade_01`, `Gutscheine_Geburtstag_01`.
   - Reale Buchung: Jahr, Monat und je Monat hochzählende Zahl: `2026_03_0042`.
-  - Topf: der vom Nutzer gewählte Name, eindeutig pro Nutzer.
+  - Topfumbuchung: Jahr, Monat, Name des Quelltopfs und je Monat und Quelltopf hochzählende Zahl: `2026_03_Urlaub_0002`.
+  - Topf: der vom Nutzer gewählte Name, eindeutig pro Nutzer. Umbenennen geht ab einem Monat (`rename`); `get_name(month)` liefert den damals gültigen Namen. Alte Namen bleiben reserviert.
 - Geldorte werden nie gelöscht, nur geschlossen, und nur bei Wert 0. Töpfe werden nur bei Wert 0 aufgelöst.
 - Im Topf fällt ein Geldort weg, sobald sein Wert 0 erreicht; derselbe Geldort steht nie doppelt drin.
 - Die Gehaltsteile dürfen zusammen nie mehr als das Gehalt ergeben. Jede Änderung am `SalaryPlan` wird vorher geprüft und bei Verstoß mit Fehler abgelehnt.
@@ -56,8 +57,6 @@ Alle Klassen liegen in `src/finance_manager/model/`.
 
 ### Geplant, noch nicht umgesetzt
 
-- Zuordnung realer Buchungen zu Töpfen (ggf. aufgeteilt) und Kennung für `TopfTransfer`.
-- Umbenennen von Töpfen.
 - Später: Hilfswerte (freie Formeln pro Topf), Aktien, Forderungen an andere.
 
 ## Ordnerstruktur

@@ -6,6 +6,7 @@ import pytest
 from finance_manager.model import (
     Auslage,
     Bankkonto,
+    Bargeld,
     Direction,
     Kontoart,
     RealTransaction,
@@ -18,6 +19,8 @@ from finance_manager.model import (
 )
 from finance_manager.model.errors import (
     SameTopfTransferError,
+    SplitGeldortMismatchError,
+    SplitSourceMismatchError,
     TransactionValueNotPositiveError,
 )
 
@@ -43,7 +46,12 @@ def test_real_transaction_with_negative_value_is_outgoing() -> None:
 def test_real_transaction_and_topf_transfer_are_transactions() -> None:
     einkauf = RealTransaction(CONFIG, Value(Decimal("-42.50")), DAY, geldort=GIROKONTO)
     umbuchung = TopfTransfer(
-        Value(Decimal("100.00")), DAY, source=URLAUB, target=FREIZEIT, geldort=GIROKONTO
+        CONFIG,
+        Value(Decimal("100.00")),
+        DAY,
+        source=URLAUB,
+        target=FREIZEIT,
+        geldort=GIROKONTO,
     )
 
     assert isinstance(einkauf, Transaction)
@@ -52,7 +60,12 @@ def test_real_transaction_and_topf_transfer_are_transactions() -> None:
 
 def test_topf_transfer_keeps_source_and_target() -> None:
     umbuchung = TopfTransfer(
-        Value(Decimal("100.00")), DAY, source=URLAUB, target=FREIZEIT, geldort=GIROKONTO
+        CONFIG,
+        Value(Decimal("100.00")),
+        DAY,
+        source=URLAUB,
+        target=FREIZEIT,
+        geldort=GIROKONTO,
     )
 
     assert umbuchung.source is URLAUB
@@ -63,6 +76,7 @@ def test_topf_transfer_keeps_source_and_target() -> None:
 def test_topf_transfer_value_must_be_positive(number: str) -> None:
     with pytest.raises(TransactionValueNotPositiveError):
         TopfTransfer(
+            CONFIG,
             Value(Decimal(number)),
             DAY,
             source=URLAUB,
@@ -74,6 +88,7 @@ def test_topf_transfer_value_must_be_positive(number: str) -> None:
 def test_topf_transfer_rejects_same_topf() -> None:
     with pytest.raises(SameTopfTransferError):
         TopfTransfer(
+            CONFIG,
             Value(Decimal("100.00")),
             DAY,
             source=URLAUB,
@@ -122,6 +137,7 @@ def test_real_transaction_can_be_marked_as_auslage_or_rueckzahlung() -> None:
 
 def test_topf_transfer_keeps_shared_geldort() -> None:
     umbuchung = TopfTransfer(
+        CONFIG,
         Value(Decimal("100.00")),
         DAY,
         source=URLAUB,
@@ -193,3 +209,111 @@ def test_identical_transactions_get_different_identifiers() -> None:
     zweites_broetchen = RealTransaction(config, Value(Decimal("-3.50")), DAY, GIROKONTO)
 
     assert erstes_broetchen.identifier != zweites_broetchen.identifier
+
+
+def test_real_transaction_has_no_topf_by_default() -> None:
+    einkauf = RealTransaction(CONFIG, Value(Decimal("-42.50")), DAY, GIROKONTO)
+
+    assert einkauf.topf is None
+
+
+def test_real_transaction_can_get_topf_when_created() -> None:
+    einkauf = RealTransaction(
+        CONFIG, Value(Decimal("-42.50")), DAY, GIROKONTO, topf=FREIZEIT
+    )
+
+    assert einkauf.topf is FREIZEIT
+
+
+def test_assign_topf_replaces_earlier_topf() -> None:
+    einkauf = RealTransaction(
+        CONFIG, Value(Decimal("-42.50")), DAY, GIROKONTO, topf=FREIZEIT
+    )
+
+    einkauf.assign_topf(URLAUB)
+
+    assert einkauf.topf is URLAUB
+
+
+def test_plain_topf_transfer_splits_nothing() -> None:
+    umschichtung = TopfTransfer(
+        CONFIG,
+        Value(Decimal("100.00")),
+        DAY,
+        source=URLAUB,
+        target=FREIZEIT,
+        geldort=GIROKONTO,
+    )
+
+    assert umschichtung.split_of is None
+
+
+def test_topf_transfer_can_split_a_real_transaction() -> None:
+    einkauf = RealTransaction(
+        CONFIG, Value(Decimal("-42.50")), DAY, GIROKONTO, topf=URLAUB
+    )
+
+    aufteilung = TopfTransfer(
+        CONFIG,
+        Value(Decimal("12.50")),
+        DAY,
+        source=URLAUB,
+        target=FREIZEIT,
+        geldort=GIROKONTO,
+        split_of=einkauf,
+    )
+
+    assert aufteilung.split_of is einkauf
+
+
+def test_topf_transfer_identifier_uses_month_and_source_topf() -> None:
+    config = UserConfig()
+
+    erste = TopfTransfer(
+        config, Value(Decimal("10.00")), DAY, URLAUB, FREIZEIT, GIROKONTO
+    )
+    zweite = TopfTransfer(
+        config, Value(Decimal("20.00")), DAY, URLAUB, FREIZEIT, GIROKONTO
+    )
+    andere_quelle = TopfTransfer(
+        config, Value(Decimal("5.00")), DAY, FREIZEIT, URLAUB, GIROKONTO
+    )
+
+    assert erste.identifier == "2026_03_Urlaub_0001"
+    assert zweite.identifier == "2026_03_Urlaub_0002"
+    assert andere_quelle.identifier == "2026_03_Freizeit_0001"
+
+
+def test_split_must_start_from_the_topf_of_the_transaction() -> None:
+    einkauf = RealTransaction(
+        CONFIG, Value(Decimal("-42.50")), DAY, GIROKONTO, topf=URLAUB
+    )
+
+    with pytest.raises(SplitSourceMismatchError):
+        TopfTransfer(
+            CONFIG,
+            Value(Decimal("12.50")),
+            DAY,
+            source=FREIZEIT,
+            target=URLAUB,
+            geldort=GIROKONTO,
+            split_of=einkauf,
+        )
+
+
+def test_split_must_be_on_the_geldort_of_the_transaction() -> None:
+    schublade = Bargeld(CONFIG, "Schublade")
+    einkauf = RealTransaction(
+        CONFIG, Value(Decimal("-42.50")), DAY, GIROKONTO, topf=URLAUB
+    )
+
+    with pytest.raises(SplitGeldortMismatchError):
+        TopfTransfer(
+            CONFIG,
+            Value(Decimal("12.50")),
+            DAY,
+            source=URLAUB,
+            target=FREIZEIT,
+            geldort=schublade,
+            split_of=einkauf,
+        )

@@ -6,6 +6,8 @@ from enum import Enum
 from finance_manager.model.config import UserConfig
 from finance_manager.model.errors import (
     SameTopfTransferError,
+    SplitGeldortMismatchError,
+    SplitSourceMismatchError,
     TransactionValueNotPositiveError,
 )
 from finance_manager.model.geldort import Geldort
@@ -57,6 +59,10 @@ class RealTransaction(Transaction):
     The sign of the Value gives the Direction: positive is incoming,
     negative is outgoing. The statement_text is the text from the bank
     statement. The mark flags an Auslage or a Rueckzahlung.
+
+    A RealTransaction belongs to exactly one Topf, or to none yet, e.g.
+    right after import. If it has to be split, it is assigned to one Topf
+    and the parts are moved on with TopfTransfers.
     """
 
     def __init__(
@@ -67,6 +73,7 @@ class RealTransaction(Transaction):
         geldort: Geldort,
         statement_text: str = "",
         mark: TransactionMark | None = None,
+        topf: Topf | None = None,
     ) -> None:
         super().__init__(value, transaction_date)
         number = config.count_up_transaction(transaction_date)
@@ -76,6 +83,7 @@ class RealTransaction(Transaction):
         self._geldort = geldort
         self._statement_text = statement_text
         self._mark = mark
+        self._topf = topf
 
     @property
     def identifier(self) -> str:
@@ -97,34 +105,67 @@ class RealTransaction(Transaction):
         """Incoming or outgoing, matching the sign of the Value."""
         return Direction.OUTGOING if self._value.is_negative else Direction.INCOMING
 
+    @property
+    def topf(self) -> Topf | None:
+        """The Topf this transaction belongs to, or None if not assigned yet."""
+        return self._topf
+
     def get_mark(self) -> TransactionMark | None:
         """Return the mark of this transaction, or None if it is not marked."""
         return self._mark
+
+    def assign_topf(self, topf: Topf) -> None:
+        """Assign this transaction to a Topf, replacing any earlier assignment."""
+        self._topf = topf
 
 
 class TopfTransfer(Transaction):
     """An internal transfer from one Topf to another. No real money moves.
 
+    Every TopfTransfer gets a unique identifier from the year and month of
+    its date, the name of the source Topf and a number that counts up per
+    month and source Topf, e.g. "2026_03_Urlaub_0002".
     The Value is always positive; source and target give the direction.
     The money stays at the same Geldort; only its Topf changes there.
+
+    split_of links the transfer to the RealTransaction it splits, e.g. the part
+    of a shopping trip that belongs to another Topf. Such a part counts as an
+    expense of the target Topf. A split must start from the Topf and Geldort
+    of that RealTransaction. Without split_of, the transfer only moves saved
+    money between Töpfe.
     """
 
     def __init__(
         self,
+        config: UserConfig,
         value: Value,
         transaction_date: date,
         source: Topf,
         target: Topf,
         geldort: Geldort,
+        split_of: RealTransaction | None = None,
     ) -> None:
         if value.number <= 0:
             raise TransactionValueNotPositiveError(value.number)
         if source is target:
             raise SameTopfTransferError(source.name)
+        if split_of is not None:
+            check_split_fits_transaction(source, geldort, split_of)
         super().__init__(value, transaction_date)
+        number = config.count_up_topf_transfer(transaction_date, source.name)
+        self._identifier = (
+            f"{transaction_date.year}_{transaction_date.month:02d}_"
+            f"{source.name}_{number:04d}"
+        )
         self._source = source
         self._target = target
         self._geldort = geldort
+        self._split_of = split_of
+
+    @property
+    def identifier(self) -> str:
+        """The unique identifier, e.g. "2026_03_Urlaub_0002"."""
+        return self._identifier
 
     @property
     def source(self) -> Topf:
@@ -140,6 +181,21 @@ class TopfTransfer(Transaction):
     def geldort(self) -> Geldort:
         """The Geldort where the money stays."""
         return self._geldort
+
+    @property
+    def split_of(self) -> RealTransaction | None:
+        """The RealTransaction this transfer splits, or None for a plain transfer."""
+        return self._split_of
+
+
+def check_split_fits_transaction(
+    source: Topf, geldort: Geldort, split_of: RealTransaction
+) -> None:
+    """Raise an error if a split does not start where the RealTransaction is."""
+    if split_of.topf is not source:
+        raise SplitSourceMismatchError(split_of.identifier, source.name)
+    if split_of.geldort is not geldort:
+        raise SplitGeldortMismatchError(split_of.identifier, geldort.identifier)
 
 
 class Auslage:

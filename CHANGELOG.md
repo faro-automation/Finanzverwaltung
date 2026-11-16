@@ -19,9 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Currency` and `Value` (signed money value, never `float`), `Month`
   - Geldorte: `Bankkonto` (with `Kontoart`), `Bargeld`, `Gutscheine`, each with a
     unique identifier, an actual value and an active/closed status
-  - `Topf` with a main Geldort, values per Geldort and an active/dissolved status
-  - Transactions: `RealTransaction` (with identifier, statement text, direction and
-    Auslage/Rückzahlung mark) and `TopfTransfer`
+  - `Topf` with a main Geldort, values per Geldort, an active/dissolved status and
+    renaming from a given month on
+  - Transactions: `RealTransaction` (with identifier, statement text, direction,
+    Auslage/Rückzahlung mark and assigned Topf) and `TopfTransfer` (with identifier,
+    optionally linked to the real transaction it splits, checked to start from
+    its Topf and Geldort)
   - `Auslage` with an expected number of Rückzahlungen
   - `SalaryPlan` with `Salary`, remainder Topf, valid-from month and an allocation
     of `SalaryPart`s made of named `SalaryPartItem`s; every change is checked so

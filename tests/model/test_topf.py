@@ -6,6 +6,7 @@ from finance_manager.model import (
     Bankkonto,
     Bargeld,
     Kontoart,
+    Month,
     Topf,
     TopfStatus,
     UserConfig,
@@ -14,6 +15,7 @@ from finance_manager.model import (
 from finance_manager.model.errors import (
     DuplicateTopfNameError,
     TopfAlreadyAufgeloestError,
+    TopfRenameNotAfterLastRenameError,
     TopfValueNotZeroError,
 )
 
@@ -152,3 +154,55 @@ def test_same_topf_name_is_allowed_for_different_users() -> None:
     zweiter_topf = Topf(UserConfig(), "Urlaub", main_geldort=SPARBUCH)
 
     assert zweiter_topf.name == "Urlaub"
+
+
+def test_rename_applies_from_the_given_month() -> None:
+    config = UserConfig()
+    topf = Topf(config, "Urlaub", main_geldort=SPARBUCH)
+
+    topf.rename(config, "Reisen", valid_from=Month(2027, 3))
+
+    assert topf.name == "Reisen"
+    assert topf.get_name(Month(2027, 2)) == "Urlaub"
+    assert topf.get_name(Month(2027, 3)) == "Reisen"
+
+
+def test_several_renames_keep_the_name_history() -> None:
+    config = UserConfig()
+    topf = Topf(config, "Urlaub", main_geldort=SPARBUCH)
+
+    topf.rename(config, "Reisen", valid_from=Month(2027, 3))
+    topf.rename(config, "Fernreisen", valid_from=Month(2028, 1))
+
+    assert topf.get_name(Month(2026, 12)) == "Urlaub"
+    assert topf.get_name(Month(2027, 6)) == "Reisen"
+    assert topf.get_name(Month(2028, 1)) == "Fernreisen"
+
+
+def test_rename_must_start_after_the_latest_rename() -> None:
+    config = UserConfig()
+    topf = Topf(config, "Urlaub", main_geldort=SPARBUCH)
+    topf.rename(config, "Reisen", valid_from=Month(2027, 3))
+
+    with pytest.raises(TopfRenameNotAfterLastRenameError):
+        topf.rename(config, "Fernreisen", valid_from=Month(2027, 3))
+
+
+def test_rename_to_a_taken_name_is_rejected() -> None:
+    config = UserConfig()
+    Topf(config, "Freizeit", main_geldort=SPARBUCH)
+    topf = Topf(config, "Urlaub", main_geldort=SPARBUCH)
+
+    with pytest.raises(DuplicateTopfNameError):
+        topf.rename(config, "Freizeit", valid_from=Month(2027, 3))
+
+    assert topf.name == "Urlaub"
+
+
+def test_old_name_stays_reserved_after_rename() -> None:
+    config = UserConfig()
+    topf = Topf(config, "Urlaub", main_geldort=SPARBUCH)
+    topf.rename(config, "Reisen", valid_from=Month(2027, 3))
+
+    with pytest.raises(DuplicateTopfNameError):
+        Topf(config, "Urlaub", main_geldort=SPARBUCH)

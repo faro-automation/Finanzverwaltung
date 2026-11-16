@@ -6,10 +6,12 @@ from enum import Enum
 from finance_manager.model.config import UserConfig
 from finance_manager.model.errors import (
     TopfAlreadyAufgeloestError,
+    TopfRenameNotAfterLastRenameError,
     TopfValueNotZeroError,
 )
 from finance_manager.model.geldort import Geldort
 from finance_manager.model.money import Value
+from finance_manager.model.month import Month
 
 
 class TopfStatus(Enum):
@@ -23,6 +25,9 @@ class Topf:
     """A purpose that money is assigned to, independent of where it actually is.
 
     The name identifies the Topf: it is chosen by the user and unique per user.
+    A Topf can be renamed from a given month on; the names used before stay
+    known for the months they applied to and stay reserved, so no other Topf
+    can take them.
     The main_geldort is where the Topf's money should ideally be.
     The geldort_values say how much of the Topf's money is at which Geldort,
     keyed by the Geldort's identifier. A Geldort whose value reaches zero is
@@ -38,7 +43,8 @@ class Topf:
         geldort_values: dict[str, Value] | None = None,
     ) -> None:
         config.register_topf_name(name)
-        self._name = name
+        self._first_name = name
+        self._renames: list[tuple[Month, str]] = []
         self._main_geldort = main_geldort
         self._geldort_values = {
             identifier: value
@@ -49,8 +55,8 @@ class Topf:
 
     @property
     def name(self) -> str:
-        """The unique name chosen by the user."""
-        return self._name
+        """The current name: the one from the latest rename, or the first name."""
+        return self._renames[-1][1] if self._renames else self._first_name
 
     @property
     def main_geldort(self) -> Geldort:
@@ -71,6 +77,28 @@ class Topf:
     def is_active(self) -> bool:
         """Whether the Topf can still receive money."""
         return self._status is TopfStatus.ACTIVE
+
+    def get_name(self, month: Month) -> str:
+        """Return the name that applied in the given month."""
+        name = self._first_name
+        for valid_from, new_name in self._renames:
+            if valid_from <= month:
+                name = new_name
+        return name
+
+    def rename(self, config: UserConfig, new_name: str, valid_from: Month) -> None:
+        """Rename the Topf from the given month on.
+
+        The new name must not be taken yet, and the month must come after the
+        month of the latest rename.
+        """
+        if self._renames and valid_from <= self._renames[-1][0]:
+            last_month = self._renames[-1][0]
+            raise TopfRenameNotAfterLastRenameError(
+                self.name, f"{last_month.year}-{last_month.number:02d}"
+            )
+        config.register_topf_name(new_name)
+        self._renames.append((valid_from, new_name))
 
     def add_geldort_value(self, geldort: Geldort, value: Value) -> None:
         """Add a value at a Geldort.
@@ -100,8 +128,8 @@ class Topf:
         first be moved to another Topf with a TopfTransfer.
         """
         if not self.is_active:
-            raise TopfAlreadyAufgeloestError(self._name)
+            raise TopfAlreadyAufgeloestError(self.name)
         actual_number = self.get_actual_value().number
         if actual_number != 0:
-            raise TopfValueNotZeroError(self._name, actual_number)
+            raise TopfValueNotZeroError(self.name, actual_number)
         self._status = TopfStatus.AUFGELOEST
